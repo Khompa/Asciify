@@ -1,18 +1,44 @@
 use image::{ImageReader, DynamicImage, GrayImage};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-    let _gscale1 = r#"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~i!lI;:,"^`. "#;
-    let _gscale2 = "@%#*+=-:. ";
-
-    let img = ImageReader::open("src/images231.jpg")?.decode()?;
+    let img = ImageReader::open("src/images231.jpg")?.decode()?; //load image
     img_to_ascii(img);
     Ok(())
 }
 
 fn img_to_ascii(img: DynamicImage) {
 
-    let luma: GrayImage = img.into_luma8();
-    let (width, height) = luma.dimensions();
-    println!("Dimensions: {}x{}", width, height);
+    // different grayscale lengths
+    let _gscale1 = r#"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~i!lI;:,"^`. "#;
+    let _gscale2 = "@%#*+=-:. ";
+
+
+    let luma: GrayImage = img.into_luma8();            // convert image to grayscale
+    let (width, height) = luma.dimensions(); // get dimensions of the image
+    let step_size = 8;                          // how many pixels we want to represent by one ascii character, currently 8x8
+
+    // iterate by step_size pixels in height and in width
+    for block_y in (0..height).step_by(step_size) {
+        for block_x in (0..width).step_by(step_size) {
+
+            let mut total_luminosity = 0u32; // variable to store the luminosity of each pixel
+            let mut pixel_count = 0u32;      // variable to store the amount of pixels iterated over
+
+            // iterate over each pixel in the 8x8 block
+            for y in block_y..std::cmp::min(block_y + step_size as u32, height) {
+                for x in block_x..std::cmp::min(block_x + step_size as u32, width) {
+
+                    let pixel = luma.get_pixel(x, y); // fetch the pixel
+                    total_luminosity += pixel[0] as u32;         //store the luminosity of the pixel
+                    pixel_count +=1;                             // increase pixel_count
+                }
+            }
+
+            let avg_luminosity = (total_luminosity/pixel_count) as u8;          // calculate avg luminosity of pixels in block
+            let index = (avg_luminosity as usize * (_gscale2.len()-1)) / 255; // get the ascii_value corresponding to the avg luminosity
+            print!("{}", _gscale2.chars().nth(index).unwrap_or(' '));                // print the ascii
+        }
+        println!();      // go to new line
+    }
+
 }
