@@ -1,12 +1,29 @@
 use image::{ImageReader, DynamicImage, GrayImage, RgbImage};
+use std::io::{self, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let img = ImageReader::open("src/selfie.jpg")?.decode()?; //load image
-    img_to_ascii(img);
+
+    // ask if user wants colour or not
+    let colour_choice = loop {
+        print!("Do you want coloured ascii? (y/n): ");
+        io::stdout().flush()?;                           // necessary in order to print before reading input       
+        let mut input = String::new();           // variable to store input
+        io::stdin().read_line(&mut input)?;         // read input
+        let trimmed = input.trim().to_string(); // trim away the newline from input and convert to owned string
+        
+        // proceed if input is valid, loop otherwise
+        if trimmed == "y" || trimmed == "n" {
+            break trimmed; // return the valid choice
+        }
+        println!("Not a valid response. It's a simple question...");
+    };
+    
+    let img = ImageReader::open("src/images231.jpg")?.decode()?; //load image. TODO: ask for path as input instead of a set image.
+    img_to_ascii(img, &colour_choice);
     Ok(())
 }
 
-fn img_to_ascii(img: DynamicImage) {
+fn img_to_ascii(img: DynamicImage, colour: &str) {
 
     // different grayscale lengths
     let _gscale1 = r#"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~i!lI;:,"^`. "#;
@@ -16,7 +33,7 @@ fn img_to_ascii(img: DynamicImage) {
     let luma: GrayImage = img.clone().into_luma8();    // convert image to grayscale
     let rgb: RgbImage = img.into_rgb8();               // rgb version for colouring the ascii
     let (width, height) = luma.dimensions(); // get dimensions of the image
-    let step_size = 20;                          // how many pixels we want to represent by one ascii character, currently 8x8
+    let step_size = 8;                          // how many pixels we want to represent by one ascii character, currently 8x8
 
     // iterate by step_size pixels in height and in width
     for block_y in (0..height).step_by(step_size) {
@@ -44,12 +61,18 @@ fn img_to_ascii(img: DynamicImage) {
             }
 
             let avg_luminosity = (total_luminosity/pixel_count) as u8; // calculate avg luminosity of pixels in block
-            let avg_r = (total_r/pixel_count) as u8;
-            let avg_g = (total_g/pixel_count) as u8;
-            let avg_b = (total_b/pixel_count) as u8;
+            let avg_r = (total_r/pixel_count) as u8;                   // avg r value of pixels
+            let avg_g = (total_g/pixel_count) as u8;                   // avg g value of pixels
+            let avg_b = (total_b/pixel_count) as u8;                   // avg b value of pixels
 
-            let index = (avg_luminosity as usize * (_gscale2.len()-1)) / 255;                                 // get the ascii_value corresponding to the avg luminosity
-            print!("\x1b[38;2;{};{};{}m{}\x1b[0m", avg_r, avg_g, avg_b, _gscale2.chars().nth(index).unwrap_or(' ')); // print the ascii in rgb colors
+            let index = ((255 - avg_luminosity) as usize * (_gscale2.len()-1)) / 255; // get the ascii_value corresponding to the avg luminosity
+
+            if colour == "y" {
+                print!("\x1b[38;2;{};{};{}m{}\x1b[0m", avg_r, avg_g, avg_b, _gscale2.chars().nth(index).unwrap_or(' ')); // print the ascii in rgb colors
+            } else {
+                print!("{}", _gscale2.chars().nth(index).unwrap_or(' '));
+            }
+
         }
         println!();      // go to new line
     }
