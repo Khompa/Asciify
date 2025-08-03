@@ -10,7 +10,7 @@ pub fn img_to_ascii(img: DynamicImage, colour: &str) {
     let luma: GrayImage = img.clone().into_luma8();    // convert image to grayscale
     let rgb: RgbImage = img.into_rgb8();               // rgb version for colouring the ascii
     let (width, height) = luma.dimensions(); // get dimensions of the image
-    let step_size = 6;                          // how many pixels we want to represent by one ascii character, currently 8x8
+    let step_size = 10;                          // how many pixels we want to represent by one ascii character, currently 8x8
 
     // iterate by step_size pixels in height and in width
     for block_y in (0..height).step_by(step_size) {
