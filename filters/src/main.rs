@@ -1,34 +1,26 @@
-use std::io::{self, Write};
-use image::ImageReader;
-mod filters;
-use filters::img_to_ascii;
-use iced::{Settings};
+use iced::Task;
+
 
 mod gui;
-use gui::app::FilterApp;
+use gui::app::{FilterApp, Message};
 
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    FilterApp::run(Settings::default);
+fn main() -> iced::Result {
+    iced::application("Filter App", update, view)
+        .theme(theme)
+        .run_with(FilterApp::new)
+}
 
-    // ask if user wants colour or not
-    let colour_choice = loop {
-        print!("Do you want coloured ascii? (y/n): ");
-        io::stdout().flush()?;                           // necessary in order to print before reading input       
-        let mut input = String::new();           // variable to store input
-        io::stdin().read_line(&mut input)?;         // read input
-        let trimmed = input.trim().to_string(); // trim away the newline from input and convert to owned string
-        
-        // proceed if input is valid, loop otherwise
-        if trimmed == "y" || trimmed == "n" {
-            break trimmed; // return the valid choice
-        }
-        println!("Not a valid response. It's a simple question...");
-    };
-    
-    let img = ImageReader::open("src/test_images/lovisa.jpg")?.decode()?; //load image. TODO: ask for path as input instead of a set image.
-    img_to_ascii(img, &colour_choice);
-    Ok(())
+fn update(app: &mut FilterApp, message: Message) -> Task<Message> {
+    app.update(message)
+}
+
+fn view(app: &FilterApp) -> iced::Element<Message> {
+    app.view()
+}
+
+fn theme(app: &FilterApp) -> iced::Theme {
+    app.theme()
 }
 
 
