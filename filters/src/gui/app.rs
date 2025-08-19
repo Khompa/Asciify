@@ -1,6 +1,7 @@
 use rfd::AsyncFileDialog;
 use iced::{Task, Element, Theme};
-use iced::widget::{button};
+use iced::widget::{button, Image};
+use iced::widget::image::Handle;
 use image::{DynamicImage, ImageReader};
 use std::path::PathBuf;
 
@@ -8,12 +9,13 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub enum Message {
     OpenImage,
-    ImageLoaded(Result<DynamicImage, String>),
+    ImageLoaded(Result<(DynamicImage, PathBuf), String>),
     SelectFilter,
     SaveImage,
 }
 
 pub struct FilterApp {
+    image_handle: Option<Handle>,
     image: Option<DynamicImage>,
     file_path: Option<PathBuf>,
     selected_filter: String,
@@ -24,6 +26,7 @@ impl FilterApp {
     pub fn new() -> (Self, Task<Message>) {
         (
             Self {
+                image_handle: None,
                 image: None,
                 file_path: None,
                 selected_filter: String::new(),
@@ -33,9 +36,6 @@ impl FilterApp {
         )
     }
 
-    pub fn title(&self) -> String {
-        "Filter App".to_string()
-    }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
@@ -45,13 +45,24 @@ impl FilterApp {
             }
             Message::ImageLoaded(result) => {
                 match result {
-                    Ok(img) => {
-                        self.image = Some(img);
-                        self.status = "Image loaded successfully".to_string();
+                    Ok((img, path)) => {
+                        let mut bytes = Vec::new();
+                        match img.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png) {
+                            Ok(_) => {
+                                self.image_handle = Some(Handle::from_bytes(bytes));
+                                self.image = Some(img);
+                                self.file_path = Some(path);
+                                self.status = "Image loaded successfully".to_string();
+                            }
+                            Err(e) => {
+                                self.status = format!("Failed to encode image: {}", e);
+                            }
+                        }
                     }
                     Err(e) => {
                         self.status = format!("Error: {}", e);
                     }
+                
                 }
                 Task::none()
             }
@@ -66,13 +77,21 @@ impl FilterApp {
 
     pub fn view(&self) -> Element<Message> {
         use iced::widget::{column, text};
-        column![
-            text(&self.status),
-            button("+").on_press(Message::OpenImage),
-        ]
-        .spacing(10)
-        .padding(20)
-        .into()        
+        let mut content = column![
+            button("Upload image").on_press(Message::OpenImage),
+        ];
+
+        if let Some(handle) = &self.image_handle {
+            content = content.push(
+                Image::new(handle.clone())
+                .width(400)
+                .height(300)
+            );
+        }
+        content
+            .spacing(10)
+            .padding(20)
+            .into()   
     }
 
     pub fn theme(&self) -> Theme {
@@ -80,7 +99,7 @@ impl FilterApp {
     }
 }
 
-async fn load_image_async() -> Result<DynamicImage, String> {
+async fn load_image_async() -> Result<(DynamicImage, PathBuf), String> {
     let file_handle = AsyncFileDialog::new()
         .add_filter("Images", &["jpg", "png", "jpeg"])
         .set_title("Select an image file")
@@ -94,6 +113,6 @@ async fn load_image_async() -> Result<DynamicImage, String> {
         .decode()
         .map_err(|e| format!("Failed to decode image: {}", e))?;
 
-    Ok(img)
+    Ok((img, path.to_path_buf()))
 }
 
