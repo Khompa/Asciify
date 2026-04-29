@@ -1,6 +1,6 @@
 use rfd::AsyncFileDialog;
 use iced::{Task, Element, Theme};
-use iced::widget::{button, Image};
+use iced::widget::{button, Image, text_input};
 use iced::widget::image::Handle;
 use image::{DynamicImage, ImageReader};
 use std::path::PathBuf;
@@ -11,15 +11,16 @@ use std::path::PathBuf;
 pub enum Message {
     OpenImage,
     ImageLoaded(Result<(DynamicImage, PathBuf), String>),
-    SaveImage,
     Asciify,
+    AsciiInput(String),
 }
 
 pub struct FilterApp {
     image_handle: Option<Handle>,
     image: Option<DynamicImage>,
     file_path: Option<PathBuf>,
-    ascii_version: Option<(Vec<(u8, u8, u8)>, Vec<u8>)>,
+    ascii_data: Option<(Vec<(u8, u8, u8)>, Vec<char>, usize)>,
+    ascii_input: String,
     status: String,
 }
 
@@ -30,7 +31,8 @@ impl FilterApp {
                 image_handle: None,
                 image: None,
                 file_path: None,
-                ascii_version: None,
+                ascii_data: None,
+                ascii_input: String::new(),
                 status: "Ready".to_string(),
             },
             Task::none(),
@@ -54,7 +56,7 @@ impl FilterApp {
                                 self.image = Some(img);
                                 self.file_path = Some(path);
                                 self.status = "Image loaded successfully".to_string();
-                                self.ascii_version = None; // reset ascii version when a new image is loaded
+                                self.ascii_data = None; // reset ascii version when a new image is loaded
                             }
                             Err(e) => {
                                 self.status = format!("Failed to encode image: {}", e);
@@ -68,13 +70,14 @@ impl FilterApp {
                 }
                 Task::none()
             }
-            Message::SaveImage => {
+            Message::AsciiInput(input) => {
+                self.ascii_input = input;
                 Task::none()
             }
             Message::Asciify => {
                 if let Some(img) = &self.image {
-                    let (rgb, ascii) = ascii::img_to_ascii(img.clone());
-                    self.ascii_version = Some((rgb, ascii));
+                    let (rgb, ascii, cols) = ascii::img_to_ascii(img.clone(), &self.ascii_input);
+                    self.ascii_data = Some((rgb, ascii, cols));
                 }
                 Task::none()
             }
@@ -93,9 +96,22 @@ impl FilterApp {
             action_button
         ];
 
-        if let Some(ascii) = &self.ascii_version {
+        if let Some(ascii_data) = &self.ascii_data {
+            let mut ascii_string = String::new();
+            let (_, ascii_chars, cols) = ascii_data;
+
+            for (i, &character) in ascii_chars.iter().enumerate() {
+                    ascii_string.push(character);
+
+                    if (i + 1) % cols == 0 {
+                        ascii_string.push('\n');
+                    }
+                }
+            
             content = content.push(
-                text("ASCII version generated! (Not displayed yet)")
+                text(ascii_string)
+                .font(iced::Font::MONOSPACE)
+                .size(10.0)
             );
         } else if let Some(handle) = &self.image_handle {
             // Display the image if it's loaded
@@ -103,6 +119,10 @@ impl FilterApp {
                 Image::new(handle.clone())
                 .width(400)
                 .height(300)
+            );
+            // Text input for the user to choose characters
+            content = content.push(
+                text_input("Enter ASCII characters. If left empty, a default set will be used.", &self.ascii_input).on_input(Message::AsciiInput)
             );
             // Add the "Asciify" button
             content = content.push(
