@@ -1,5 +1,5 @@
 use rfd::AsyncFileDialog;
-use iced::{Task, Element, Theme};
+use iced::{Task, Element, Theme, Length, alignment};
 use iced::widget::{button, Image, text_input, slider, responsive};
 use iced::widget::image::Handle;
 use image::{DynamicImage, ImageReader};
@@ -167,6 +167,8 @@ impl FilterApp {
                     .font(iced::Font::MONOSPACE)
                     .size(optimal_size)
                     .line_height(1.0)
+                    .width(Length::Fill)
+                    .center()
                     .into()
                 })
             );            
@@ -190,6 +192,7 @@ impl FilterApp {
         content
             .spacing(10)
             .padding(20)
+            .align_x(iced::Alignment::Center)
             .into()
 
     }
