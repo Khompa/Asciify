@@ -1,6 +1,6 @@
 use image::{DynamicImage, GrayImage, RgbImage};
 
-pub fn img_to_ascii(img: DynamicImage, chars: &str) -> (Vec<(u8, u8, u8)>, Vec<char>, usize) {
+pub fn img_to_ascii(img: DynamicImage, chars: &str, step_size: usize) -> (Vec<(u8, u8, u8)>, Vec<char>, usize) {
 
     // different grayscale lengths
     let gscale = if chars.is_empty() {
@@ -13,10 +13,9 @@ pub fn img_to_ascii(img: DynamicImage, chars: &str) -> (Vec<(u8, u8, u8)>, Vec<c
     let rgb: RgbImage = img.into_rgb8();               // rgb version for colouring the ascii
     let (width, height) = luma.dimensions(); // get dimensions of the image
 
-    let step_size = 4;                          // how many pixels we want to represent by one ascii character, currently 8x8
 
-    let cols = (width/step_size) as usize; // calculate how many ascii characters we will have in width¨
-    let rows = (height/step_size) as usize; // calculate how many ascii characters we will have in height
+    let cols = width as usize/step_size; // calculate how many ascii characters we will have in width¨
+    let rows = height as usize/step_size; // calculate how many ascii characters we will have in height
     let total_blocks = cols * rows;              // calculate total amount of ascii characters
 
     let mut pixel_array: Vec<char> = vec![' '; total_blocks]; // array to store the ascii values of the pixels
@@ -27,7 +26,7 @@ pub fn img_to_ascii(img: DynamicImage, chars: &str) -> (Vec<(u8, u8, u8)>, Vec<c
     for block_y in (0..height).step_by(step_size as usize) {
         for block_x in (0..width).step_by(step_size as usize) {
 
-            if (block_x / step_size) as usize >= cols || (block_y / step_size) as usize >= rows {
+            if (block_x as usize/ step_size) >= cols || (block_y as usize/ step_size) >= rows {
                 continue; // skip blocks that exceed the image dimensions
             }
 
@@ -58,7 +57,7 @@ pub fn img_to_ascii(img: DynamicImage, chars: &str) -> (Vec<(u8, u8, u8)>, Vec<c
             let avg_b = (total_b/pixel_count) as u8;                   // avg b value of pixels
 
             let index = ((255 - avg_luminosity) as usize * (gscale.len()-1)) / 255; // get the ascii_value corresponding to the avg luminosity
-            let vec_index = (block_y / step_size) as usize * cols + (block_x / step_size) as usize; // calculate the index in the ascii and rgb array
+            let vec_index = (block_y as usize/ step_size) * cols + (block_x as usize/ step_size); // calculate the index in the ascii and rgb array
             
             // print!("\x1b[38;2;{};{};{}m{}\x1b[0m", avg_r, avg_g, avg_b, _gscale2.chars().nth(index).unwrap_or(' ')); // print the ascii in rgb colors
             rgb_array[vec_index] = (avg_r, avg_g, avg_b); // store the rgb values in the rgb array

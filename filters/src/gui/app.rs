@@ -1,6 +1,6 @@
 use rfd::AsyncFileDialog;
 use iced::{Task, Element, Theme};
-use iced::widget::{button, Image, text_input};
+use iced::widget::{button, Image, text_input, slider, responsive};
 use iced::widget::image::Handle;
 use image::{DynamicImage, ImageReader};
 use std::path::PathBuf;
@@ -12,7 +12,9 @@ pub enum Message {
     OpenImage,
     ImageLoaded(Result<(DynamicImage, PathBuf), String>),
     Asciify,
+    AsciiGenerated((Vec<(u8, u8, u8)>, Vec<char>, usize)),
     AsciiInput(String),
+    StepSize(u8)
 }
 
 pub struct FilterApp {
@@ -21,6 +23,7 @@ pub struct FilterApp {
     file_path: Option<PathBuf>,
     ascii_data: Option<(Vec<(u8, u8, u8)>, Vec<char>, usize)>,
     ascii_input: String,
+    step_size: u8,
     status: String,
 }
 
@@ -33,6 +36,7 @@ impl FilterApp {
                 file_path: None,
                 ascii_data: None,
                 ascii_input: String::new(),
+                step_size: 8,
                 status: "Ready".to_string(),
             },
             Task::none(),
@@ -70,14 +74,56 @@ impl FilterApp {
                 }
                 Task::none()
             }
+            Message::AsciiGenerated(data) => {
+                self.ascii_data = Some(data);
+                self.status = "Ready".to_string();
+                Task::none()
+            }
             Message::AsciiInput(input) => {
                 self.ascii_input = input;
+
+                if self.ascii_data.is_some() {
+                    if let Some(img) = &self.image {
+                        let img_clone = img.clone();
+                        let chars = self.ascii_input.clone();
+                        let step = self.step_size as usize;
+                    
+                        return Task::perform(
+                            async move { ascii::img_to_ascii(img_clone, &chars, step) },
+                            Message::AsciiGenerated
+                        )
+                    }
+                }
+                Task::none()
+            }
+            Message::StepSize(input) => {
+                self.step_size = input;
+
+                if self.ascii_data.is_some() {
+                    if let Some(img) = &self.image {
+                        let img_clone = img.clone();
+                        let chars = self.ascii_input.clone();
+                        let step = self.step_size as usize;
+                    
+                        return Task::perform(
+                            async move { ascii::img_to_ascii(img_clone, &chars, step) },
+                            Message::AsciiGenerated
+                        )
+                    }
+                }
                 Task::none()
             }
             Message::Asciify => {
                 if let Some(img) = &self.image {
-                    let (rgb, ascii, cols) = ascii::img_to_ascii(img.clone(), &self.ascii_input);
-                    self.ascii_data = Some((rgb, ascii, cols));
+                    self.status = "Generating ASCII...".to_string();
+                    let img_clone = img.clone();
+                    let chars = self.ascii_input.clone();
+                    let step = self.step_size as usize;
+
+                    return Task::perform(
+                        async move { ascii::img_to_ascii(img_clone, &chars, step) },
+                        Message::AsciiGenerated
+                    );
                 }
                 Task::none()
             }
@@ -91,14 +137,17 @@ impl FilterApp {
         } else {
             button("Upload Image").on_press(Message::OpenImage)
         };
+        
+        // Initial content at start
+        let mut content = column![action_button];
 
-        let mut content = column![
-            action_button
-        ];
+        if let Some(handle) = &self.image_handle {
 
-        if let Some(ascii_data) = &self.ascii_data {
+            if let Some(ascii_data) = &self.ascii_data {
             let mut ascii_string = String::new();
             let (_, ascii_chars, cols) = ascii_data;
+
+            let rows = ascii_chars.len() / cols;
 
             for (i, &character) in ascii_chars.iter().enumerate() {
                     ascii_string.push(character);
@@ -109,30 +158,40 @@ impl FilterApp {
                 }
             
             content = content.push(
-                text(ascii_string)
-                .font(iced::Font::MONOSPACE)
-                .size(10.0)
-            );
-        } else if let Some(handle) = &self.image_handle {
-            // Display the image if it's loaded
+                responsive(move |size| {
+                    let max_height = size.height / rows as f32;
+                    let max_width = (size.width / *cols as f32) / 0.6;
+                    let optimal_size = max_height.min(max_width);
+                
+                    text(ascii_string.clone())
+                    .font(iced::Font::MONOSPACE)
+                    .size(optimal_size)
+                    .line_height(1.0)
+                    .into()
+                })
+            );            
+        } else {
             content = content.push(
-                Image::new(handle.clone())
-                .width(400)
-                .height(300)
-            );
-            // Text input for the user to choose characters
-            content = content.push(
-                text_input("Enter ASCII characters. If left empty, a default set will be used.", &self.ascii_input).on_input(Message::AsciiInput)
-            );
-            // Add the "Asciify" button
-            content = content.push(
-                button("Asciify").on_press(Message::Asciify)
-            )
+                    Image::new(handle.clone()).width(400).height(300)
+                );
+                content = content.push(
+                    button("Asciify").on_press(Message::Asciify)
+                );
         }
+        content = content.push(
+                text_input("Enter ASCII characters. If left empty, a default set will be used.", &self.ascii_input)
+                    .on_input(Message::AsciiInput)
+            );
+            content = content.push(
+                slider(2..=20, self.step_size, Message::StepSize)
+            );
+        }
+
         content
             .spacing(10)
             .padding(20)
-            .into()   
+            .into()
+
     }
 
     pub fn theme(&self) -> Theme {
