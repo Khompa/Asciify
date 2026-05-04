@@ -130,8 +130,8 @@ impl FilterApp {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
-        use iced::widget::{column, text};
+    pub fn view(&self) -> Element<Message> {use iced::widget::{column, text};
+
         let action_button = if self.image.is_some() {
             button("Change Image").on_press(Message::OpenImage)
         } else {
@@ -139,7 +139,7 @@ impl FilterApp {
         };
         
         // Initial content at start
-        let mut content = column![action_button];
+        let mut content = column![];
 
         if let Some(handle) = &self.image_handle {
 
@@ -173,6 +173,8 @@ impl FilterApp {
                 })
             );            
         } else {
+
+            
             content = content.push(
                     Image::new(handle.clone()).width(400).height(300)
                 );
@@ -187,7 +189,24 @@ impl FilterApp {
             content = content.push(
                 slider(2..=20, self.step_size, Message::StepSize)
             );
+        } else {
+            let welcome_logo = r#"   _____                .__.__  _____       
+  /  _  \   ______ ____ |__|__|/ ____\__.__.
+ /  /_\  \ /  ___// ___\|  |  \   __<   |  |
+/    |    \\___ \\  \___|  |  ||  |  \___  |
+\____|__  /____  >\___  >__|__||__|  / ____|
+        \/     \/     \/             \/     "#;
+
+            content = content.push(
+                text(welcome_logo)
+                .font(iced::Font::MONOSPACE)
+                .size(20)
+                .width(Length::Fill)
+                .align_x(alignment::Horizontal::Center)
+            );
+            content = content.push(action_button);
         }
+
 
         content
             .spacing(10)
