@@ -15,7 +15,7 @@ fn update(app: &mut FilterApp, message: Message) -> Task<Message> {
     app.update(message)
 }
 
-fn view(app: &FilterApp) -> iced::Element<Message> {
+fn view(app: &FilterApp) -> iced::Element<'_, Message> {
     app.view()
 }
 
