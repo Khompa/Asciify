@@ -1,4 +1,3 @@
-use iced::Theme::Dark;
 use iced::widget::image::Handle;
 use iced::widget::{Image, button, responsive, slider, text_input, span, rich_text};
 use iced::{Element, Length, Task, Theme, alignment};
@@ -197,6 +196,7 @@ impl FilterApp {
                             .font(iced::Font::MONOSPACE)
                             .size(optimal_size)
                             .line_height(1.0)
+                            .width(Length::Fill)
                             .align_x(alignment::Horizontal::Center)
                             .into()
                     })
@@ -216,6 +216,7 @@ impl FilterApp {
                             .font(iced::Font::MONOSPACE)
                             .size(optimal_size)
                             .line_height(1.0)
+                            .width(Length::Fill)
                             .align_x(alignment::Horizontal::Center)
                             .into()
                     })
