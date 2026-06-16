@@ -1,9 +1,10 @@
 use iced::widget::image::Handle;
-use iced::widget::{Image, button, responsive, slider, text_input};
+use iced::widget::{Image, button, responsive, slider, text_input, span, rich_text};
 use iced::{Element, Length, Task, Theme, alignment};
 use image::{DynamicImage, ImageReader};
 use rfd::AsyncFileDialog;
 use std::path::PathBuf;
+use iced::Color;
 #[path = "../filters/ascii.rs"]
 mod ascii;
 
@@ -15,6 +16,7 @@ pub enum Message {
     AsciiGenerated((Vec<(u8, u8, u8)>, Vec<char>, usize)),
     AsciiInput(String),
     StepSize(u8),
+    Color,
 }
 
 pub struct FilterApp {
@@ -24,6 +26,7 @@ pub struct FilterApp {
     ascii_data: Option<(Vec<(u8, u8, u8)>, Vec<char>, usize)>,
     ascii_input: String,
     step_size: u8,
+    use_color: bool,
     status: String,
 }
 
@@ -37,6 +40,7 @@ impl FilterApp {
                 ascii_data: None,
                 ascii_input: String::new(),
                 step_size: 8,
+                use_color: false,
                 status: "Ready".to_string(),
             },
             Task::none(),
@@ -114,6 +118,26 @@ impl FilterApp {
                 }
                 Task::none()
             }
+            Message::Color => {
+                if self.use_color {
+                    self.use_color = false;
+                } else {
+                    self.use_color = true
+                }
+                if self.ascii_data.is_some() {
+                    if let Some(img) = &self.image {
+                        let img_clone = img.clone();
+                        let chars = self.ascii_input.clone();
+                        let step = self.step_size as usize;
+
+                        return Task::perform(
+                            async move { ascii::img_to_ascii(img_clone, &chars, step) },
+                            Message::AsciiGenerated,
+                        );
+                    }
+                }
+                Task::none()
+            }
             Message::Asciify => {
                 if let Some(img) = &self.image {
                     self.status = "Generating ASCII...".to_string();
@@ -131,7 +155,7 @@ impl FilterApp {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<'_, Message> {
         use iced::widget::{column, row, text};
 
         let action_button = if self.image.is_some() {
@@ -140,37 +164,63 @@ impl FilterApp {
             button("Upload Image").on_press(Message::OpenImage)
         };
 
-        // Initial content at start
+        // Column for content to go in
         let mut content = column![];
 
+        // Check if we have an image uploaded
         if let Some(handle) = &self.image_handle {
+            // Check if we have created ascii data for the image
             if let Some(ascii_data) = &self.ascii_data {
-                let mut ascii_string = String::new();
-                let (_, ascii_chars, cols) = ascii_data;
-
+                let (ascii_color, ascii_chars, cols) = ascii_data;
                 let rows = ascii_chars.len() / cols;
 
-                for (i, &character) in ascii_chars.iter().enumerate() {
-                    ascii_string.push(character);
+                let ascii_widget = if self.use_color {
+                    let mut spans: Vec<iced::widget::text::Span<'_, Message>> = Vec::new();
 
-                    if (i + 1) % cols == 0 {
-                        ascii_string.push('\n');
+                    // Loop through character and color
+                    for(i, (&character, &(r, g, b))) in ascii_chars.iter().zip(ascii_color.iter()).enumerate() {
+
+                        spans.push(
+                            span(character.to_string()).color(Color::from_rgb8(r, g, b))
+                        );
+
+                        if (i + 1) % cols == 0 {
+                            spans.push(span("\n"));
+                        }
                     }
-                }
 
-                content = content.push(responsive(move |size| {
-                    let max_height = size.height / rows as f32;
-                    let max_width = (size.width / *cols as f32) / 0.6;
-                    let optimal_size = max_height.min(max_width);
+                    responsive(move |size| {
+                        let optimal_size = (size.height / rows as f32).min((size.width / *cols as f32) / 0.6);
 
-                    text(ascii_string.clone())
-                        .font(iced::Font::MONOSPACE)
-                        .size(optimal_size)
-                        .line_height(1.0)
-                        .width(Length::Fill)
-                        .center()
-                        .into()
-                }));
+                        rich_text(spans.clone())
+                            .font(iced::Font::MONOSPACE)
+                            .size(optimal_size)
+                            .line_height(1.0)
+                            .align_x(alignment::Horizontal::Center)
+                            .into()
+                    })
+                } else {
+                    let mut ascii_string = String::new();
+                    for (i, &character) in ascii_chars.iter().enumerate() {
+                        ascii_string.push(character);
+                        if (i + 1) % cols == 0 {
+                            ascii_string.push('\n');
+                        }
+                    }
+
+                    responsive(move |size| {
+                        let optimal_size = (size.height / rows as f32).min((size.width / *cols as f32) / 0.6);
+
+                        text(ascii_string.clone())
+                            .font(iced::Font::MONOSPACE)
+                            .size(optimal_size)
+                            .line_height(1.0)
+                            .align_x(alignment::Horizontal::Center)
+                            .into()
+                    })
+                };    
+                content = content.push(ascii_widget);            
+                
             } else {
                 content = content.push(Image::new(handle.clone()).width(400).height(300));
                 content = content.push(row![
@@ -184,9 +234,11 @@ impl FilterApp {
                     &self.ascii_input,
                 )
                 .on_input(Message::AsciiInput),
-                slider(2..=20, self.step_size, Message::StepSize)
+                button("Color?").on_press(Message::Color),
+                slider(2..=30, self.step_size, Message::StepSize)
             ]);
         } else {
+            // Content at start
             let welcome_logo = r#"   _____                .__.__  _____       
   /  _  \   ______ ____ |__|__|/ ____\__.__.
  /  /_\  \ /  ___// ___\|  |  \   __<   |  |
@@ -204,7 +256,7 @@ impl FilterApp {
             );
             content = content.push(action_button);
         }
-
+        // Center text and button
         content
             .spacing(10)
             .padding(20)
