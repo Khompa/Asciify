@@ -1,3 +1,4 @@
+use iced::Theme::Dark;
 use iced::widget::image::Handle;
 use iced::widget::{Image, button, responsive, slider, text_input, span, rich_text};
 use iced::{Element, Length, Task, Theme, alignment};
@@ -265,7 +266,7 @@ impl FilterApp {
     }
 
     pub fn theme(&self) -> Theme {
-        Theme::default()
+        Theme::Dark
     }
 }
 
